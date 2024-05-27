@@ -10,7 +10,7 @@ RUN apt-get update && \
 #COPY default.conf.template /etc/nginx/conf.d/default.conf.template
 #COPY nginx.conf /etc/nginx/nginx.conf
 RUN rm -Rf /usr/share/nginx/html/*
-RUN git clone https://github.com/diranetafen/static-website-example.git /usr/share/nginx/html
+RUN git clone https://github.com/MokraneDevOps/site_de_stage.git /usr/share/nginx/html
 #RUN useradd -m myuser
 #USER myuser
 COPY nginx.conf /etc/nginx/conf.d/default.conf

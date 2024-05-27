@@ -3,7 +3,7 @@
 
 pipeline {
     environment {
-        IMAGE_NAME = "site_de_stage"
+        IMAGE_NAME = "site_wordpress"
         IMAGE_TAG = "latest"
         STAGING = "mokrane921-staging"
         PRODUCTION = "mokrane921-production"
@@ -11,21 +11,31 @@ pipeline {
     agent none
     stages {
        stage('Build image') {
-           agent any
+           agent {
+               docker { 
+                   image 'docker:latest' 
+                   args '-v /var/run/docker.sock:/var/run/docker.sock'
+               }
+           }
            steps {
               script {
-                sh 'docker build -t mokrane921/$IMAGE_NAME:$IMAGE_TAG .'
+                sh "docker build -t mokrane921/${IMAGE_NAME}:${IMAGE_TAG} ."
               }
            }
        }
-       stage('Run container based on builded image') {
-          agent any
+       stage('Run container based on built image') {
+          agent {
+              docker { 
+                  image 'docker:latest' 
+                  args '-v /var/run/docker.sock:/var/run/docker.sock'
+              }
+          }
           steps {
             script {
-              sh '''
-                  docker run --name $IMAGE_NAME -d -p 80:5000 -e PORT=5000 mokrane921/$IMAGE_NAME:$IMAGE_TAG
+              sh """
+                  docker run --name ${IMAGE_NAME} -d -p 80:5000 -e PORT=5000 mokrane921/${IMAGE_NAME}:${IMAGE_TAG}
                   sleep 5
-              '''
+              """
              }
           }
        }
@@ -33,26 +43,31 @@ pipeline {
            agent any
            steps {
               script {
-                sh '''
-                   curl localhost | echo "Hello world!"
-                '''
+                sh """
+                   curl localhost:80 | grep "Hello world!"
+                """
               }
            }
        }
        stage('Clean container') {
-          agent any
+          agent {
+              docker { 
+                  image 'docker:latest' 
+                  args '-v /var/run/docker.sock:/var/run/docker.sock'
+              }
+          }
           steps {
              script {
-               sh '''
-                   docker stop $IMAGE_NAME
-                   docker rm $IMAGE_NAME
-               '''
+               sh """
+                   docker stop ${IMAGE_NAME}
+                   docker rm ${IMAGE_NAME}
+               """
              }
           }
       }
-      stage('Push image in staging and deploy it') {
+      stage('Push image to staging and deploy it') {
         when {
-            expression { GIT_BRANCH == 'origin/main' }
+            branch 'main'
         }
         agent any
         environment {
@@ -60,18 +75,18 @@ pipeline {
         }
         steps {
            script {
-             sh '''
+             sh """
                 heroku container:login
-                heroku create $STAGING || echo "projets already exist"
-                heroku container:push -a $STAGING web
-                heroku container:release -a $STAGING web
-             '''
+                heroku create ${STAGING} || echo "projects already exist"
+                heroku container:push web -a ${STAGING}
+                heroku container:release web -a ${STAGING}
+             """
            }
         }
      }
-     stage('Push image in production and deploy it') {
+     stage('Push image to production and deploy it') {
        when {
-           expression { GIT_BRANCH == 'origin/main' }
+           branch 'main'
        }
        agent any
        environment {
@@ -79,12 +94,12 @@ pipeline {
        }
        steps {
           script {
-            sh '''
+            sh """
                heroku container:login
-               heroku create $PRODUCTION || echo "projets already exist"
-               heroku container:push -a $PRODUCTION web
-               heroku container:release -a $PRODUCTION web
-            '''
+               heroku create ${PRODUCTION} || echo "projects already exist"
+               heroku container:push web -a ${PRODUCTION}
+               heroku container:release web -a ${PRODUCTION}
+            """
           }
        }
      }
@@ -93,7 +108,7 @@ pipeline {
      always {
        script {
          slackNotifier currentBuild.result
-     }
+       }
     }
   }
 }
